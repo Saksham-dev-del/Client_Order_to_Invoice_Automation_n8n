@@ -1,0 +1,26 @@
+{
+  "order_id": "ORD-10047",
+  "order_date": "2026-01-07T14:30:00+05:30",
+  "customer_name": "Rahul Sharma",
+  "customer_phone": "+919259383909",
+  "customer_email": "rahul@example.com",
+  "customer_address": "Dehradun, Uttarakhand, India",
+  "payment_method": "UPI",
+  "tax_rate": 0.18,
+  "shipping": 49,
+  "discount": 100,
+  "items": [
+    {
+      "sku": "TSHIRT-BLK-M",
+      "product_name": "Black Oversized T-Shirt",
+      "quantity": 2,
+      "unit_price": 699
+    },
+    {
+      "sku": "CAP-WHT-01",
+      "product_name": "White Streetwear Cap",
+      "quantity": 1,
+      "unit_price": 399
+    }
+  ]
+}

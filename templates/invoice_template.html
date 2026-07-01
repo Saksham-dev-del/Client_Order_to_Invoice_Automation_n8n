@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Invoice</title>
+<style>
+body{font-family:Arial;margin:30px;color:#111827}
+.invoice{max-width:800px;margin:auto;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden}
+.header{background:linear-gradient(135deg,#111827,#2563eb);color:white;padding:28px}
+.meta{display:flex;justify-content:space-between;padding:24px;background:#f8fafc}
+.section{padding:24px}
+table{width:100%;border-collapse:collapse}
+th{background:#eff6ff;text-align:left;padding:12px}
+td{border-bottom:1px solid #e5e7eb;padding:12px}
+</style>
+</head>
+<body>
+<div class="invoice">
+<div class="header"><h1>INVOICE</h1><p>Automated Order-to-Invoice Pipeline</p></div>
+<div class="meta">
+<div><b>Bill To</b><br>{{customer_name}}<br>{{customer_phone}}<br>{{customer_email}}</div>
+<div><b>Invoice:</b> {{invoice_no}}<br><b>Order:</b> {{order_id}}<br><b>Total:</b> ₹{{grand_total}}</div>
+</div>
+<div class="section">{{items_table}}</div>
+</div>
+</body>
+</html>

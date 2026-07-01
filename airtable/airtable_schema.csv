@@ -1,0 +1,17 @@
+Table,Field Name,Field Type
+Orders,Order ID,Single line text
+Orders,Invoice No,Single line text
+Orders,Customer Name,Single line text
+Orders,Customer Phone,Phone
+Orders,Grand Total,Currency
+Orders,Status,Single select
+Order Items,Order ID,Single line text
+Order Items,SKU,Single line text
+Order Items,Product Name,Single line text
+Order Items,Quantity,Number
+Order Items,Unit Price,Currency
+Order Items,Line Total,Currency
+Inventory,SKU,Single line text
+Inventory,Product Name,Single line text
+Inventory,Stock Quantity,Number
+Inventory,Reorder Level,Number

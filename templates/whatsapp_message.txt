@@ -1,0 +1,1 @@
+Hi {{customer_name}}, your order {{order_id}} is confirmed. Invoice {{invoice_no}} has been generated. Total: ₹{{grand_total}}. Thank you for shopping with us!

@@ -1,0 +1,232 @@
+{
+  "name": "Client Order-to-Invoice Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "client-order-to-invoice",
+        "responseMode": "responseNode"
+      },
+      "id": "1",
+      "name": "Webhook - New Order",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || $json;\nconst required = ['order_id','customer_name','customer_phone','items'];\nconst missing = required.filter(k => !body[k]);\nif (missing.length) throw new Error('Missing fields: ' + missing.join(', '));\nconst items = Array.isArray(body.items) ? body.items : [];\nlet subtotal = 0;\nconst normalizedItems = items.map((item, index) => {\n  const qty = Number(item.quantity || 1);\n  const price = Number(item.unit_price || 0);\n  const total = qty * price;\n  subtotal += total;\n  return { line_no:index+1, sku:item.sku||'', product_name:item.product_name||item.name||'Product', quantity:qty, unit_price:price, line_total:total };\n});\nconst taxRate = Number(body.tax_rate || 0.18);\nconst tax = +(subtotal * taxRate).toFixed(2);\nconst shipping = Number(body.shipping || 0);\nconst discount = Number(body.discount || 0);\nconst grandTotal = +(subtotal + tax + shipping - discount).toFixed(2);\nconst invoiceNo = body.invoice_no || `INV-${new Date().getFullYear()}-${body.order_id}`;\nreturn [{ json: { ...body, items: normalizedItems, invoice_no: invoiceNo, subtotal:+subtotal.toFixed(2), tax_rate:taxRate, tax, shipping, discount, grand_total:grandTotal, status:'INVOICE_GENERATED' } }];"
+      },
+      "id": "2",
+      "name": "Validate + Calculate Invoice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -650,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const o = $json;\nconst rows = o.items.map(i => `<tr><td>${i.line_no}</td><td>${i.sku}</td><td>${i.product_name}</td><td>${i.quantity}</td><td>\u20b9${i.unit_price}</td><td>\u20b9${i.line_total}</td></tr>`).join('');\nconst html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>\nbody{font-family:Arial;margin:30px;color:#111827}.invoice{max-width:800px;margin:auto;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden}\n.header{background:linear-gradient(135deg,#111827,#2563eb);color:white;padding:28px}.meta{display:flex;justify-content:space-between;padding:24px;background:#f8fafc}\n.section{padding:24px}table{width:100%;border-collapse:collapse}th{background:#eff6ff;text-align:left;padding:12px}td{border-bottom:1px solid #e5e7eb;padding:12px}\n.totals{margin-left:auto;width:320px}.totals div{display:flex;justify-content:space-between;padding:8px 0}.grand{font-size:22px;font-weight:bold;color:#2563eb;border-top:2px solid #dbeafe;margin-top:8px;padding-top:12px}\n</style></head><body><div class=\"invoice\"><div class=\"header\"><h1>INVOICE</h1><p>Automated Order-to-Invoice Pipeline</p></div>\n<div class=\"meta\"><div><b>Bill To</b><br>${o.customer_name}<br>${o.customer_phone}<br>${o.customer_email||''}<br>${o.customer_address||''}</div>\n<div><b>Invoice:</b> ${o.invoice_no}<br><b>Order:</b> ${o.order_id}<br><b>Date:</b> ${o.order_date||new Date().toISOString()}<br><b>Payment:</b> ${o.payment_method||'COD'}</div></div>\n<div class=\"section\"><table><thead><tr><th>#</th><th>SKU</th><th>Product</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table></div>\n<div class=\"section\"><div class=\"totals\"><div><span>Subtotal</span><b>\u20b9${o.subtotal}</b></div><div><span>Tax</span><b>\u20b9${o.tax}</b></div><div><span>Shipping</span><b>\u20b9${o.shipping}</b></div><div><span>Discount</span><b>- \u20b9${o.discount}</b></div><div class=\"grand\"><span>Total</span><span>\u20b9${o.grand_total}</span></div></div></div>\n</div></body></html>`;\nreturn [{ json: { ...o, invoice_html: html } }];"
+      },
+      "id": "3",
+      "name": "Generate Invoice HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdfshift.io/v3/convert/pdf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ { source: $json.invoice_html } }}"
+      },
+      "id": "4",
+      "name": "Generate PDF Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -150,
+        0
+      ],
+      "notes": "Replace with your PDF API credentials."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Orders",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Order ID": "={{$json.order_id}}",
+            "Invoice No": "={{$json.invoice_no}}",
+            "Customer Name": "={{$json.customer_name}}",
+            "Customer Phone": "={{$json.customer_phone}}",
+            "Grand Total": "={{$json.grand_total}}",
+            "Status": "={{$json.status}}"
+          }
+        }
+      },
+      "id": "5",
+      "name": "Airtable - Create Order Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        100,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const o = $items('Generate Invoice HTML')[0].json;\nconst msg = `Hi ${o.customer_name}, your order ${o.order_id} is confirmed. Invoice ${o.invoice_no} has been generated. Total: \u20b9${o.grand_total}. Thank you!`;\nreturn [{ json: { ...o, whatsapp_message: msg } }];"
+      },
+      "id": "6",
+      "name": "Prepare WhatsApp Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        100,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:{{$json.customer_phone}}"
+            },
+            {
+              "name": "Body",
+              "value": "={{$json.whatsapp_message}}"
+            }
+          ]
+        }
+      },
+      "id": "7",
+      "name": "Twilio - Send WhatsApp Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        350,
+        120
+      ],
+      "notes": "Replace Twilio Account SID and Auth Token credential."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, order_id: $json.order_id, invoice_no: $json.invoice_no, message: 'Order processed successfully.' } }}"
+      },
+      "id": "8",
+      "name": "Respond - Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        600,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - New Order": {
+      "main": [
+        [
+          {
+            "node": "Validate + Calculate Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate + Calculate Invoice": {
+      "main": [
+        [
+          {
+            "node": "Generate Invoice HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Invoice HTML": {
+      "main": [
+        [
+          {
+            "node": "Generate PDF Invoice",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Airtable - Create Order Record",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WhatsApp Message": {
+      "main": [
+        [
+          {
+            "node": "Twilio - Send WhatsApp Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twilio - Send WhatsApp Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Respond - Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
